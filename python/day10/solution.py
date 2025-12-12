@@ -6,10 +6,9 @@ from io import IOBase
 import math
 #from dataclasses import dataclass
 from pprint import pprint
-import itertools
+from z3 import Optimize,Int,Sum,sat
 
-
-TESTING_STATE = True
+TESTING_STATE = False
 SUBMIT = True
 logging_level = logging.DEBUG if TESTING_STATE else logging.INFO
 logging.basicConfig(level=logging_level)
@@ -89,7 +88,7 @@ class ContextualSolver(Solver):
             if starter_val == part2:
                 joltage_list = joltageStrToList(joltage_str)
                 logging.debug(f"Converted joltage list: {joltage_list}")
-            solution += findFewestTotalPressesToStart(final_state,buttons_list) if starter_val == part1 else findFewestTotalPressesToConfig(joltage_list, buttons_list)
+            solution += findFewestTotalPressesToStart(final_state,buttons_list) if starter_val == part1 else actualPartTwoSolution(joltage_list, buttons_list)
             #logging.debug(f"Current Solution Value: {solution}")
         return solution
     
@@ -241,6 +240,21 @@ def findFewestTotalPressesToConfig(joltage_list:list[int],buttons_list:list[list
     logging.debug(f"Returning after {presses} presses")
     return presses
     
+def actualPartTwoSolution(joltage_list:list[int],buttons_list:list[list[int]]) -> int:
+    opt = Optimize()
+    x = [Int(f'x{i}') for i in range(len(buttons_list))]
+    for xi in x:
+        opt.add(xi >= 0)
+    for idx,joltage in enumerate(joltage_list):
+        coefficient_list = [button[idx] for button in buttons_list]
+        opt.add(Sum([xi*c for c,xi in zip(coefficient_list,x)]) == joltage)
+    opt.minimize(Sum(x))
+    logging.debug(opt)
+    if opt.check() == sat:
+        m = opt.model()
+        return sum([m[xi].as_long() for xi in x])
+    return 0
+
 
 
 def main():
